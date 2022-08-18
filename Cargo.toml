@@ -1,0 +1,13 @@
+[package]
+name = "finangen-analysis-plugin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+finangen-core = { path = "../finangen/finangen-core" }
+finangen-plugins = { path = "../finangen/finangen-plugins" }
+serde = "1.0"
