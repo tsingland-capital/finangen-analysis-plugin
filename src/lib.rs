@@ -38,7 +38,7 @@ impl Plugin for AnalysisPlugin {
             expect("cannot find plugin config key: plugins.finangen_analysis_plugin");
         let cron_expr = match config.daily_collect_cron_expr {
             None => {
-                "0 0 0 * * *".to_string()
+                "59 59 23 * * *".to_string()
             }
             Some(expr) => expr
         };

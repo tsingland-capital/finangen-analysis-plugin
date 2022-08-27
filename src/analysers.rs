@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
-use finangen_core::prelude::{direction, Order, Transaction};
+use finangen_core::prelude::{Order, Transaction};
 use finangen_core::prelude::dashmap::DashSet;
 use finangen_core::Runtime;
 use crate::models::{AccountRecord, OrderRecord, PositionRecord, TransactionRecord};
@@ -45,9 +45,9 @@ pub struct AnalyserInner{
     // 按天统计的持仓信息
     positions: Mutex<HashMap<i64, Vec<PositionRecord>>>,
     // // 按订单触发统计的订单信息
-    orders: DashSet<OrderRecord>,
+    orders: DashSet<Order>,
     // // 按成交单触发统计的成交单信息
-    transactions: DashSet<TransactionRecord>,
+    transactions: DashSet<Transaction>,
 }
 
 impl AnalyserInner {
@@ -81,21 +81,25 @@ impl AnalyserInner {
                 let account_record = account_records.get_mut(account.name()).unwrap();
                 account_record.push(AccountRecord::from((account, now)));
                 let account_id = account.id();
-                let long_positions = account.positions(direction::LONG);
-                position_records.append(&mut long_positions.iter().map(|pos| PositionRecord::from((account_id, pos, now))).collect());
-                let short_positions = account.positions(direction::SHORT);
-                position_records.append(&mut short_positions.iter().map(|pos| PositionRecord::from((account_id, pos, now))).collect());
+                let positions = account.positions(None);
+                let mut current_position_records = vec![];
+                for position in &positions{
+                    let last_price = self.runtime.get_price(position.code()).unwrap().price;
+                    current_position_records.push(PositionRecord::from((account_id, position, last_price, now)));
+                }
+                // position_records.extend(positions.iter().map(|pos| PositionRecord::from((account_id, pos, now))).collect::<Vec<PositionRecord>>());
+                position_records.extend(current_position_records);
             }
             positions.insert(self.runtime.now(), position_records);
         }
     }
 
     pub fn collect_order(&self, order: &Order) {
-        let _ = self.orders.insert(OrderRecord::from(order));
+        let _ = self.orders.insert(order.clone());
     }
 
     pub fn collect_transaction(&self, transaction: &Transaction){
-        let _ = self.transactions.insert(TransactionRecord::from(transaction));
+        let _ = self.transactions.insert(transaction.clone());
     }
 }
 
@@ -140,10 +144,10 @@ impl AnalyserInner {
             self.positions.lock().unwrap().clone()
         };
         let orders = {
-            self.orders.iter().map(|v|v.key().clone()).collect::<Vec<OrderRecord>>()
+            self.orders.iter().map(|v|OrderRecord::from(v.key())).collect::<Vec<OrderRecord>>()
         };
         let transactions = {
-            self.transactions.iter().map(|v|v.key().clone()).collect::<Vec<TransactionRecord>>()
+            self.transactions.iter().map(|v| TransactionRecord::from(v.key())).collect::<Vec<TransactionRecord>>()
         };
         Snapshot{
             benchmark_instruments: self.benchmark_instruments.clone(),
